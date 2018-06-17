@@ -1,0 +1,109 @@
+Svmvslm_presentation
+========================================================
+author: Agelink
+date: June 2018
+autosize: true
+
+Introduction
+========================================================
+
+It it not trivial for the new user to decide on a prediction model,
+or to decide whether to include all the possible predictors or just
+a few. It would be nice if there were an option to click around a
+bit to see if a model really improves when more predictors are added.
+
+Example code
+========================================================
+
+```{r code, eval=FALSE}
+library(datasets)
+library(e1071)
+mttrain<-mtcars[-c(2,12,18,25),]
+mttest<-mtcars[c(2,12,18,25),]
+wtmodel<-svm(wt~.,data=mttrain)
+qsmodel<-svm(qsec~.,data=mttrain)
+wtpreds<-predict(wtmodel)
+qspreds<-predict(qsmodel)
+plot(mttrain$wt,mttrain$qsec,col="green",ylim=c(13,23),pch=15,
+	xlab="Weight in 1000s of lbs",
+	ylab="Sec. to go from standstill to 1/4 mile driven")
+points(wtpreds,qspreds,col="blue")
+for (i in 1:nrow(mttrain)) lines(x=c(mttrain[i,6],wtpreds[i]),y=c(mttrain[i,7],qspreds[i]),col="red")
+points(mttest$wt,mttest$qsec,col="darkgreen",pch=15)
+wtnew<-predict(wtmodel,newdata=mttest)
+qsnew<-predict(qsmodel,newdata=mttest)
+points(wtnew,qsnew,col="darkblue")
+for (i in 1:nrow(mttest)) lines(x=c(mttest[i,6],wtnew[i]),y=c(mttest[i,7],qsnew[i]),col="orange")
+```
+
+Output of example code
+========================================================
+
+```{r output, echo=FALSE}
+library(datasets)
+library(e1071)
+mttrain<-mtcars[-c(2,12,18,25),]
+mttest<-mtcars[c(2,12,18,25),]
+wtmodel<-svm(wt~.,data=mttrain)
+qsmodel<-svm(qsec~.,data=mttrain)
+wtpreds<-predict(wtmodel)
+qspreds<-predict(qsmodel)
+plot(mttrain$wt,mttrain$qsec,col="green",ylim=c(13,23),pch=15,xlab="Weight in 1000s of lbs",ylab="Sec. to go from standstill to 1/4 mile driven")
+points(wtpreds,qspreds,col="blue")
+for (i in 1:nrow(mttrain)) lines(x=c(mttrain[i,6],wtpreds[i]),y=c(mttrain[i,7],qspreds[i]),col="red")
+points(mttest$wt,mttest$qsec,col="darkgreen",pch=15)
+wtnew<-predict(wtmodel,newdata=mttest)
+qsnew<-predict(qsmodel,newdata=mttest)
+points(wtnew,qsnew,col="darkblue")
+for (i in 1:nrow(mttest)) lines(x=c(mttest[i,6],wtnew[i]),y=c(mttest[i,7],qsnew[i]),col="orange")
+```
+
+Issue and solution
+========================================================
+As seen on the previous slide, it is possible to plot the actual values and
+the predictions, and connect the corresponding points on the plot to see how
+much distance there is between the two.
+On the slide, simply all the predictors were used, but it would be nice to
+dynamically add and remove predictors and see how much the prediction quality
+suffers (or not), with the plot adjusted automatically as well.
+Using the Shiny tools, it is possible to create a dashboard app where the user
+can select and deselect predictors, and even switch between different prediction
+model types. Even if a visual inspection does not provide a very rigorous
+method to compare models, it can provide a quick indication whether less is
+more, or more is more.
+
+Abridged server code
+========================================================
+```{r server, eval=FALSE}
+shinyServer(function(input, output) {
+	mttrain<-mtcars[-c(2,12,18,25),]
+	mttest<-mtcars[c(2,12,18,25),]
+		mdl<- reactive({input$choosemodel})
+	mtrain<-reactive({goodcols<-which(colnames(mtcars) %in% input$predictors)
+		mttrain[,c(goodcols,6,7)]})
+	mtest<-reactive({goodcols<-which(colnames(mtcars) %in% input$predictors)
+		mttest[,c(goodcols,6,7)]})
+	output$shownplot <- renderPlot({
+		if (mdl()=="lm") {
+			wtmodel<-lm(wt~.-qsec,data=mtrain())
+			qsmodel<-lm(qsec~.-wt,data=mtrain())
+			}
+		if (mdl()=="svm") {
+			wtmodel<-svm(wt~.-qsec,data=mtrain())
+			qsmodel<-svm(qsec~.-wt,data=mtrain())
+			}
+		wtpreds<-predict(wtmodel); qspreds<-predict(qsmodel)
+		wtnew<-predict(wtmodel,newdata=mtest()) ; qsnew<-predict(qsmodel,newdata=mtest())
+		plot(mttrain$wt,mttrain$qsec,col="green",pch=15,xlim=c(1,6),ylim=c(13,23),
+		     xlab="Weight in 1000s of lbs",ylab="Seconds to go from standstill to 1/4 mile driven")
+		points(mttest$wt,mttest$qsec,col="brown",pch=15)
+		points(wtpreds,qspreds,col="blue",pch=2)
+		for (i in 1:nrow(mttrain)) lines(x=c(mttrain[i,6],wtpreds[i]),y=c(mttrain[i,7],qspreds[i]),col="red",lwd=2)
+		points(wtnew,qsnew,col="purple",pch=17)
+		for (i in 1:nrow(mttest)) lines(x=c(mttest[i,6],wtnew[i]),y=c(mttest[i,7],qsnew[i]),col="red",lwd=2)
+		legend("bottomright",legend=c("real car used for model","real car unseen by model","prediction for car","prediction for unseen car"),
+		       col=c("green","brown","blue","purple"),pch=c(15,15,2,17))
+		legend("topright",legend="difference prediction-actual",col="red",lty=1,lwd=2)
+	})
+})
+```
