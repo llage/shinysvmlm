@@ -7,7 +7,7 @@ autosize: true
 Introduction
 ========================================================
 
-It it not trivial for the new user to decide on a prediction model,
+It it not trivial for a new user to decide on a prediction model,
 or to decide whether to include all the possible predictors or just
 a few. It would be nice if there were an option to click around a
 bit to see if a model really improves when more predictors are added.
